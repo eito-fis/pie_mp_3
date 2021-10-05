@@ -5,7 +5,7 @@ void setup() {
 }
 
 void loop() {
-    while (!Serial.available());
-    Serial.read();
+    // while (!Serial.available());
+    // Serial.read();
     Serial.println(analogRead(SENSOR));
 }
