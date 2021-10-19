@@ -8,6 +8,8 @@ const uint8_t SENSOR_OUT_RIGHT = 3;
 const uint8_t SENSORS[] = {SENSOR_OUT_LEFT, SENSOR_IN_LEFT, SENSOR_IN_RIGHT, SENSOR_OUT_RIGHT};
 const uint8_t NUM_SENSORS = 4;
 
+int SENSOR_READINGS[4] = {0, 0, 0, 0};
+
 // MISC CONSTANTS
 float DERIV_COEF = 0;
 int MOTOR_SPEED = 100;
@@ -32,6 +34,9 @@ float floatFromPC = 0.0;
 String data; 
 
 boolean newData = false;
+boolean collectData = false;
+
+int new_val; 
 
 int *consts[4] = {&CAR_RUNNING, &MOTOR_SPEED, &ERROR_COEF, &SENSOR_THRESH}; 
 
@@ -72,6 +77,7 @@ int get_measure(uint8_t sensor) {
 
 uint8_t is_line(uint8_t sensor) {
   int measure = get_measure(sensor);
+  SENSOR_READINGS[sensor] = measure;
   return (measure > SENSOR_THRESH);
 }
 
@@ -148,8 +154,7 @@ void set_array_constant(char *constant, char *values) {
   
 }
 
-void setNewVal(uint8_t index, uint8_t new_val){
-  Serial.println("ere"); 
+void setNewVal(uint8_t index, int new_val){
   if(index < 4 ){
 
     *consts[index] = new_val;
@@ -161,15 +166,28 @@ void setNewVal(uint8_t index, uint8_t new_val){
     Serial.println(ERROR_COEF); 
     Serial.println(SENSOR_THRESH); 
   } else if(index == 4) {
-    Serial.println("Setting array constant"); 
-    set_array_constant(new_val, NULL); 
+    Serial.println("Start collecting data"); 
+    collectData = true; 
+  } else if(index == 5) {
+    collectData = false;
   }
 }
 
 void send_current_consts(){
   String motorspeed = String(MOTOR_SPEED); 
-  Serial.print(motorspeed + "," + motorspeed + "," + motorspeed + "<>");
+  String errorcoef = String(ERROR_COEF); 
+  String sensorthresh = String(SENSOR_THRESH); 
+  Serial.print("{" + motorspeed + "," + errorcoef + "," + sensorthresh + "}");
   Serial.flush();
+}
+
+void send_data(){
+  Serial.print("data"); 
+  Serial.print(","); 
+  Serial.print("data"); 
+  Serial.print(","); 
+  Serial.print("data"); 
+  
 }
 
 void setup() {
@@ -181,19 +199,29 @@ void setup() {
 
 void loop() {
   set_motor_speeds();
-  /* send_current_consts(); */
+  Serial.print(collectData == true);
+  Serial.print("hiii"); 
   
+  if (collectData){
+    
+    send_data(); 
+  } else {
+    //send_current_consts(); 
+    //Serial.print(new_val);
 
+  }
+  
   recvWithStartEndMarkers();
-  if (newData == true) {
+  
+  if (newData) {
     String data = receivedChars;
     int const_index; 
-    int new_val; 
+   
 
     const_index = data.substring(0, 1).toInt(); 
     //assuming first value is only one digit 
     new_val = data.substring(2).toInt(); 
-    
+
     setNewVal(const_index, new_val); 
 
     newData = false;

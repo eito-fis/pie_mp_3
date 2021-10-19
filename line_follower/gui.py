@@ -1,18 +1,50 @@
+from posixpath import split
 from tkinter import *
 from serial_cmd import Serial_cmd 
+import time
 
 serial_port = Serial_cmd() # attempt to open serial port and run scan
 MOTOR_SPEED = 0
 ERROR_COEF = 0
 SENSOR_THRESH = 0
 
+COLLECTING_DATA = False
+COLLECTION_TIME = 5
+SLEEP_INTERVAL = 0.1
 
 
-def handleStart():
+def handleStartBot():
     writeSerial('0', '1') 
 
-def handleStop():
+def handleStopBot():
     writeSerial('0', '0')
+
+def parse_message(message):
+  '''Splits incoming message from Arduino into individual values,
+     delimited by commas'''
+  split_data = message.split(",")
+  return [int(value) for value in split_data]
+
+def handleStartData():
+    COLLECTING_DATA = True
+    writeSerial('4', '')
+    time.sleep(5)
+    for i in range(int(COLLECTION_TIME/SLEEP_INTERVAL)):
+        motorL, motorR, sensor = readSerialForData(); 
+        print(motorL)
+        print(motorR)
+
+        print(sensor)
+
+        time.sleep(SLEEP_INTERVAL)
+
+    writeSerial('5', '')
+
+
+def handleStopData():
+    COLLECTING_DATA = False
+    writeSerial('5', '')
+
 
 def handleSubmit():
     if eSensorThresh.get().isnumeric():
@@ -24,51 +56,110 @@ def handleSubmit():
         writeSerial('2', eErrorCoef.get())
 
 
-def updateConsts(old_constants):
-    print(old_constants)
+def parseOldConsts(raw_data):
+    start = raw_data.find('{')
+    end = raw_data.find('}')
+    constants = raw_data[start + 1:end]
+    constant_list = constants.split(',')
+    print(constant_list)
+    if len(constant_list) == 3:
+        displayOldConstants(constant_list)
+    else:
+        readSerialForData()
+
+def displayOldConstants(const_l):
+    MSvar.set(const_l[0])
+    ECvar.set(const_l[1])
+    STvar.set(const_l[2])
+
 
 def writeSerial(index, newval):
     if serial_port.connected:
+        print(newval)
         serial_port.write("<" + index + "," + newval + ">")
+ 
 
-def readSerial():
+def readSerialForData(): 
+    if serial_port.connected: 
+        print("getting data")
+        data = serial_port.read()
+        split_data = data.split(",")
+        print(data)
+        return [value for value in split_data]
+
+def readSerialForConsts():
     if serial_port.connected:
-      
+        print("retrieving constants")
         currentconsts = serial_port.read()
-        
-        print(currentconsts)
-        if '<>' in currentconsts:
-            updateConsts(currentconsts)
 
+        while '{' not in currentconsts and '}' not in currentconsts:
+            currentconsts = serial_port.read()
+        
+        parseOldConsts(currentconsts)
+    # root.after(2000, readSerial)
 
 
 root = Tk()
 root.title("Line follower bot!")
-root.geometry('240x320+0+0')
+root.geometry('240x520+0+0')
 root.configure(bg='white')
+
+MSvar = StringVar()
+MSlabel2 = Label( root, text="Motor speed variable: ", relief=RAISED )
+MSlabel = Label( root, textvariable=MSvar, relief=RAISED )
+
+
+ECvar = StringVar()
+EClabel2 = Label( root, text="Error coefficient variable: ", relief=RAISED )
+EClabel = Label( root,  textvariable= ECvar, relief=RAISED )
+
+
+STvar = StringVar()
+STlabel2 = Label( root, text="Sensro threshold variable: ", relief=RAISED )
+STlabel = Label( root, textvariable= STvar, relief=RAISED )
+
 
 eSensorThresh = Entry(root, width = 50)
 eMotorSpeed = Entry(root, width = 50)
 eErrorCoef = Entry(root, width = 50)
-eSensorThresh.pack()
-eMotorSpeed.pack()
-eErrorCoef.pack()
+
 
 eSensorThresh.insert(0, "Enter a new sensor threshold")
 eMotorSpeed.insert(0, "Enter a new motor speed")
 eErrorCoef.insert(0, "Enter a new error coef")
 
 submitButton = Button(root, text="Submit new constants", highlightbackground='black', command = handleSubmit)
-startButton = Button(root, text="Start", highlightbackground='blue', command = handleStart)
+startBotButton = Button(root, text="Start Bot", highlightbackground='blue', command = handleStartBot)
 
-stopButton = Button(root, text="Stop", highlightbackground = 'red', command = handleStop)
+stopBotButton = Button(root, text="Stop Bot", highlightbackground = 'red', command = handleStopBot)
+
+startDataButton = Button(root, text="Start Data Collection", highlightbackground='blue', command = handleStartData)
+
+stopDataButton = Button(root, text="Stop Data Collection", highlightbackground = 'red', command = handleStopData)
+
+
+MSlabel2.pack()
+MSlabel.pack()
+EClabel2.pack()
+EClabel.pack()
+STlabel2.pack()
+STlabel.pack()
+
+eMotorSpeed.pack()
+eErrorCoef.pack()
+eSensorThresh.pack()
 
 submitButton.pack()
-startButton.pack()
-stopButton.pack()
+
+startBotButton.pack()
+stopBotButton.pack()
+
+startDataButton.pack()
+stopDataButton.pack()
 
 
+#root.after(2000, readSerialForConsts)
 root.mainloop()  
 
-#readSerial()
+
 
