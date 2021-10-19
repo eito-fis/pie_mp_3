@@ -108,7 +108,7 @@ int get_motor_speed(Side *side, uint8_t *measures) {
 
 void set_motor_speeds() {
   uint8_t *measures = get_measures();
-  Serial.print(measures[0]); Serial.print(measures[1]); Serial.print(measures[2]); Serial.println(measures[3]);
+  //Serial.print(measures[0]); Serial.print(measures[1]); Serial.print(measures[2]); Serial.println(measures[3]);
   for (int i = 0; i < 2; i++) {
     Side *side = SIDES[i];
     int motor_speed = get_motor_speed(side, measures);
@@ -159,14 +159,13 @@ void setNewVal(uint8_t index, int new_val){
 
     *consts[index] = new_val;
     //Not working rn
-    Serial.println("Set indivdiual constant"); 
-    Serial.println(CAR_RUNNING);
-    //If car is to stop, set car running to 0, if car is to run, set car running to 1
-    Serial.println(MOTOR_SPEED); 
-    Serial.println(ERROR_COEF); 
-    Serial.println(SENSOR_THRESH); 
-  } else if(index == 4) {
-    Serial.println("Start collecting data"); 
+//    Serial.println("Set indivdiual constant"); 
+//    Serial.println(CAR_RUNNING);
+//    //If car is to stop, set car running to 0, if car is to run, set car running to 1
+//    Serial.println(MOTOR_SPEED); 
+//    Serial.println(ERROR_COEF); 
+//    Serial.println(SENSOR_THRESH); 
+  } else if(index == 4) { 
     collectData = true; 
   } else if(index == 5) {
     collectData = false;
@@ -177,16 +176,13 @@ void send_current_consts(){
   String motorspeed = String(MOTOR_SPEED); 
   String errorcoef = String(ERROR_COEF); 
   String sensorthresh = String(SENSOR_THRESH); 
-  Serial.print("{" + motorspeed + "," + errorcoef + "," + sensorthresh + "}");
+  Serial.println("{" + motorspeed + "," + errorcoef + "," + sensorthresh + "}");
   Serial.flush();
 }
 
 void send_data(){
-  Serial.print("data"); 
-  Serial.print(","); 
-  Serial.print("data"); 
-  Serial.print(","); 
-  Serial.print("data"); 
+  Serial.println("data, data, data"); 
+  Serial.flush();
   
 }
 
@@ -199,14 +195,13 @@ void setup() {
 
 void loop() {
   set_motor_speeds();
-  Serial.print(collectData == true);
-  Serial.print("hiii"); 
+  
   
   if (collectData){
-    
-    send_data(); 
+    send_data();
+  
   } else {
-    //send_current_consts(); 
+    send_current_consts(); 
     //Serial.print(new_val);
 
   }

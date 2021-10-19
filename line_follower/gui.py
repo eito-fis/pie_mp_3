@@ -13,6 +13,7 @@ COLLECTION_TIME = 5
 SLEEP_INTERVAL = 0.1
 
 
+
 def handleStartBot():
     writeSerial('0', '1') 
 
@@ -55,6 +56,8 @@ def handleSubmit():
     if eErrorCoef.get().isnumeric():
         writeSerial('2', eErrorCoef.get())
 
+    readSerialForConsts()
+
 
 def parseOldConsts(raw_data):
     start = raw_data.find('{')
@@ -84,7 +87,11 @@ def readSerialForData():
         print("getting data")
         data = serial_port.read()
         split_data = data.split(",")
-        print(data)
+        while not len(split_data) == 3:
+            data = serial_port.read()
+            split_data = data.split(",")
+
+        print(split_data)
         return [value for value in split_data]
 
 def readSerialForConsts():
@@ -158,7 +165,7 @@ startDataButton.pack()
 stopDataButton.pack()
 
 
-#root.after(2000, readSerialForConsts)
+root.after(2000, readSerialForConsts)
 root.mainloop()  
 
 
