@@ -59,16 +59,15 @@ def handleSubmit():
     readSerialForConsts()
 
 
-def parseOldConsts(raw_data):
+def parseData(raw_data):
     start = raw_data.find('{')
     end = raw_data.find('}')
-    constants = raw_data[start + 1:end]
-    constant_list = constants.split(',')
-    print(constant_list)
-    if len(constant_list) == 3:
-        displayOldConstants(constant_list)
-    else:
-        readSerialForData()
+    elements = raw_data[start + 1:end]
+    elements_l = elements.split(',')
+    print(elements_l)
+
+    return elements_l
+
 
 def displayOldConstants(const_l):
     MSvar.set(const_l[0])
@@ -87,22 +86,28 @@ def readSerialForData():
         print("getting data")
         data = serial_port.read()
         split_data = data.split(",")
-        while not len(split_data) == 3:
+        while '{' not in data or '}' not in data or not len(split_data) == 3:
             data = serial_port.read()
             split_data = data.split(",")
 
-        print(split_data)
-        return [value for value in split_data]
+        values = parseData(data)
+        print(values)   
+        return [value for value in values]
 
 def readSerialForConsts():
     if serial_port.connected:
         print("retrieving constants")
         currentconsts = serial_port.read()
+        currentconsts_l = currentconsts.split(',')
 
-        while '{' not in currentconsts and '}' not in currentconsts:
+        while '{' not in currentconsts or '}' not in currentconsts or not len(currentconsts_l) == 3:
             currentconsts = serial_port.read()
+            currentconsts_l = currentconsts.split(',')
         
-        parseOldConsts(currentconsts)
+        constants = parseData(currentconsts)
+        displayOldConstants(constants)
+
+
     # root.after(2000, readSerial)
 
 

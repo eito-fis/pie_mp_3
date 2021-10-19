@@ -181,7 +181,7 @@ void send_current_consts(){
 }
 
 void send_data(){
-  Serial.println("data, data, data"); 
+  Serial.println("{data, data, data}"); 
   Serial.flush();
   
 }
