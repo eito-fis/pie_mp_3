@@ -1,4 +1,3 @@
-
 #include <Adafruit_MotorShield.h>
 
 // SENSOR CONSTANTS
@@ -10,11 +9,11 @@ const uint8_t SENSORS[] = {SENSOR_OUT_LEFT, SENSOR_IN_LEFT, SENSOR_IN_RIGHT, SEN
 const uint8_t NUM_SENSORS = 4;
 
 // MISC CONSTANTS
-float DERIV_COEF = 0.5;
-uint8_t MOTOR_SPEED = 100;
-uint8_t ERROR_COEF = 20;
-uint8_t SENSOR_THRESH = 400;
-uint8_t CAR_RUNNING = 0; 
+float DERIV_COEF = 0;
+int MOTOR_SPEED = 100;
+int ERROR_COEF = 20;
+int CAR_RUNNING = 0; 
+int SENSOR_THRESH = 600;
 
 // MOTOR CONSTANTS
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -34,7 +33,7 @@ String data;
 
 boolean newData = false;
 
-uint8_t *consts[4] = {&CAR_RUNNING, &MOTOR_SPEED, &ERROR_COEF, &SENSOR_THRESH}; 
+int *consts[4] = {&CAR_RUNNING, &MOTOR_SPEED, &ERROR_COEF, &SENSOR_THRESH}; 
 
 
 // SIDES
@@ -99,6 +98,7 @@ int get_motor_speed(Side *side, uint8_t *measures) {
   int deriv_adj = (int)(((float)(prop_adj - side->last_speed)) * DERIV_COEF);
   side->last_speed = prop_adj;
   return (MOTOR_SPEED + prop_adj + deriv_adj) * CAR_RUNNING;
+}
 
 void set_motor_speeds() {
   uint8_t *measures = get_measures();
@@ -144,6 +144,10 @@ void recvWithStartEndMarkers() {
     }
 }
 
+void set_array_constant(char *constant, char *values) {
+  
+}
+
 void setNewVal(uint8_t index, uint8_t new_val){
   Serial.println("ere"); 
   if(index < 4 ){
@@ -176,7 +180,6 @@ void setup() {
 }
 
 void loop() {
-
   set_motor_speeds();
   /* send_current_consts(); */
   
