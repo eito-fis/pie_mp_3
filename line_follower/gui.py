@@ -1,7 +1,8 @@
 from posixpath import split
 from tkinter import *
-from serial_cmd import Serial_cmd 
+from serial_cmd import Serial_cmd
 import time
+import joblib
 
 serial_port = Serial_cmd() # attempt to open serial port and run scan
 MOTOR_SPEED = 0
@@ -9,13 +10,13 @@ ERROR_COEF = 0
 SENSOR_THRESH = 0
 
 COLLECTING_DATA = False
-COLLECTION_TIME = 5
+COLLECTION_TIME = 10
 SLEEP_INTERVAL = 0.1
 
 
 
 def handleStartBot():
-    writeSerial('0', '1') 
+    writeSerial('0', '1')
 
 def handleStopBot():
     writeSerial('0', '0')
@@ -28,17 +29,22 @@ def parse_message(message):
 
 def handleStartData():
     COLLECTING_DATA = True
+    # time.sleep(1)
     writeSerial('4', '')
-    time.sleep(5)
+    data = []
     for i in range(int(COLLECTION_TIME/SLEEP_INTERVAL)):
-        motorL, motorR, sensor = readSerialForData(); 
+        t, motorL, motorR, *measures = readSerialForData();
+        print(t)
         print(motorL)
         print(motorR)
 
-        print(sensor)
+        print(measures)
 
-        time.sleep(SLEEP_INTERVAL)
-
+        data.append((motorR, motorL, measures[2], measures[1], measures[3], measures[0], t))
+        # time.sleep(SLEEP_INTERVAL)
+    print(data)
+    joblib.dump(data, "data.jl")
+    print("Saved to data.jl")
     writeSerial('5', '')
 
 
@@ -79,31 +85,36 @@ def writeSerial(index, newval):
     if serial_port.connected:
         print(newval)
         serial_port.write("<" + index + "," + newval + ">")
- 
 
-def readSerialForData(): 
-    if serial_port.connected: 
+
+def readSerialForData():
+    if serial_port.connected:
         print("getting data")
         data = serial_port.read()
         split_data = data.split(",")
-        while '{' not in data or '}' not in data or not len(split_data) == 3:
+        print(split_data)
+        while '{' not in data or '}' not in data or not len(split_data) == 7:
             data = serial_port.read()
+            print(f"LOOPING {data}")
             split_data = data.split(",")
 
         values = parseData(data)
-        print(values)   
+        print(values)
         return [value for value in values]
 
 def readSerialForConsts():
     if serial_port.connected:
         print("retrieving constants")
         currentconsts = serial_port.read()
+        currentconsts = serial_port.read()
+        currentconsts = serial_port.read()
         currentconsts_l = currentconsts.split(',')
+        print(currentconsts_l)
 
         while '{' not in currentconsts or '}' not in currentconsts or not len(currentconsts_l) == 3:
             currentconsts = serial_port.read()
             currentconsts_l = currentconsts.split(',')
-        
+
         constants = parseData(currentconsts)
         displayOldConstants(constants)
 
@@ -171,7 +182,4 @@ stopDataButton.pack()
 
 
 root.after(2000, readSerialForConsts)
-root.mainloop()  
-
-
-
+root.mainloop()

@@ -40,6 +40,8 @@ int new_val;
 
 int *consts[4] = {&CAR_RUNNING, &MOTOR_SPEED, &ERROR_COEF, &SENSOR_THRESH}; 
 
+unsigned long last_time;
+unsigned long WAIT_FOR = 100;
 
 // SIDES
 typedef struct {
@@ -108,14 +110,21 @@ int get_motor_speed(Side *side, uint8_t *measures) {
 
 void set_motor_speeds() {
   uint8_t *measures = get_measures();
-  //Serial.print(measures[0]); Serial.print(measures[1]); Serial.print(measures[2]); Serial.println(measures[3]);
+  int *speeds = malloc(sizeof(int) * 2);
   for (int i = 0; i < 2; i++) {
     Side *side = SIDES[i];
     int motor_speed = get_motor_speed(side, measures);
     motor_speed = max(min(motor_speed, 255), 0);
-    //set_motor(side.motor, side.dir, motor_speed);
     side->motor->setSpeed(motor_speed);
+    speeds[i] = motor_speed;
   }
+
+  unsigned long current_time = millis();
+  if (collectData && (current_time - last_time) > WAIT_FOR) {
+    send_data(speeds[1], speeds[0], measures);
+    last_time = current_time;
+  }
+  free(speeds);
   free(measures);
 }
 
@@ -156,15 +165,7 @@ void set_array_constant(char *constant, char *values) {
 
 void setNewVal(uint8_t index, int new_val){
   if(index < 4 ){
-
     *consts[index] = new_val;
-    //Not working rn
-//    Serial.println("Set indivdiual constant"); 
-//    Serial.println(CAR_RUNNING);
-//    //If car is to stop, set car running to 0, if car is to run, set car running to 1
-//    Serial.println(MOTOR_SPEED); 
-//    Serial.println(ERROR_COEF); 
-//    Serial.println(SENSOR_THRESH); 
   } else if(index == 4) { 
     collectData = true; 
   } else if(index == 5) {
@@ -172,18 +173,23 @@ void setNewVal(uint8_t index, int new_val){
   }
 }
 
-void send_current_consts(){
-  String motorspeed = String(MOTOR_SPEED); 
-  String errorcoef = String(ERROR_COEF); 
-  String sensorthresh = String(SENSOR_THRESH); 
-  Serial.println("{" + motorspeed + "," + errorcoef + "," + sensorthresh + "}");
+void send_current_consts(int flag){
+  Serial.print("{");
+  Serial.print(MOTOR_SPEED); Serial.print(","); 
+  Serial.print(ERROR_COEF); Serial.print(",");
+  Serial.print(SENSOR_THRESH);
+  Serial.println("}");
   Serial.flush();
 }
 
-void send_data(){
-  Serial.println("{data, data, data}"); 
+void send_data(int lspeed, int rspeed, uint8_t *measures){
+  Serial.print("{");
+  Serial.print(millis()); Serial.print(","); 
+  Serial.print(lspeed); Serial.print(","); Serial.print(rspeed); Serial.print(",");
+  Serial.print(SENSOR_READINGS[0]); Serial.print(","); Serial.print(SENSOR_READINGS[1]); Serial.print(",");
+  Serial.print(SENSOR_READINGS[2]); Serial.print(","); Serial.print(SENSOR_READINGS[3]);
+  Serial.println("}");
   Serial.flush();
-  
 }
 
 void setup() {
@@ -191,20 +197,14 @@ void setup() {
   Serial.begin(115200);
   set_motor(RIGHT.motor, RIGHT.dir);
   set_motor(LEFT.motor, LEFT.dir);
+  send_current_consts(0);
+  send_current_consts(0);
+  send_current_consts(0);
+  last_time = millis();
 }
 
 void loop() {
   set_motor_speeds();
-  
-  
-  if (collectData){
-    send_data();
-  
-  } else {
-    send_current_consts(); 
-    //Serial.print(new_val);
-
-  }
   
   recvWithStartEndMarkers();
   
@@ -212,13 +212,13 @@ void loop() {
     String data = receivedChars;
     int const_index; 
    
-
     const_index = data.substring(0, 1).toInt(); 
     //assuming first value is only one digit 
     new_val = data.substring(2).toInt(); 
 
     setNewVal(const_index, new_val); 
 
+    send_current_consts(1);
     newData = false;
   }
 }
