@@ -1,5 +1,5 @@
 from tkinter import *
-from serial_cmd import Serial_cmd 
+from serial_cmd import Serial_cmd
 
 serial_port = Serial_cmd() # attempt to open serial port and run scan
 MOTOR_SPEED = 0
@@ -9,7 +9,7 @@ SENSOR_THRESH = 0
 
 
 def handleStart():
-    writeSerial('0', '1') 
+    writeSerial('0', '1')
 
 def handleStop():
     writeSerial('0', '0')
@@ -33,9 +33,9 @@ def writeSerial(index, newval):
 
 def readSerial():
     if serial_port.connected:
-      
+
         currentconsts = serial_port.read()
-        
+
         print(currentconsts)
         if '<>' in currentconsts:
             updateConsts(currentconsts)
@@ -68,7 +68,6 @@ startButton.pack()
 stopButton.pack()
 
 
-root.mainloop()  
+root.mainloop()
 
 #readSerial()
-

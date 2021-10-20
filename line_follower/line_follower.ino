@@ -11,9 +11,13 @@ const uint8_t NUM_SENSORS = 4;
 // MISC CONSTANTS
 float DERIV_COEF = 0;
 int MOTOR_SPEED = 100;
+int TURN_SPEED = 10;
 int ERROR_COEF = 20;
 int CAR_RUNNING = 0; 
 int SENSOR_THRESH = 600;
+int TURNING = -1;
+
+Adafruit_DCMotor *turning_motor;
 
 // MOTOR CONSTANTS
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -45,13 +49,13 @@ typedef struct {
 } Side;
 
 Side RIGHT = {
-  .coefs = {4, 1, -1, -4},
+  .coefs = {1, 1, -1, -1},
   .motor = motor_right,
   .dir = FORWARD,
   .last_speed = 0
 };
 Side LEFT = {
-  .coefs = {-4, -1, 1, 4},
+  .coefs = {-1, -1, 1, 1},
   .motor = motor_left,
   .dir = FORWARD,
   .last_speed = 0
@@ -103,14 +107,34 @@ int get_motor_speed(Side *side, uint8_t *measures) {
 void set_motor_speeds() {
   uint8_t *measures = get_measures();
   Serial.print(measures[0]); Serial.print(measures[1]); Serial.print(measures[2]); Serial.println(measures[3]);
-  for (int i = 0; i < 2; i++) {
-    Side *side = SIDES[i];
-    int motor_speed = get_motor_speed(side, measures);
-    motor_speed = max(min(motor_speed, 255), 0);
-    //set_motor(side.motor, side.dir, motor_speed);
-    side->motor->setSpeed(motor_speed);
+  if (TURNING == -1 && (measures[0] == 1 && measures[1] == 1)) {
+    TURNING = 2;
+    motor_right->setSpeed(MOTOR_SPEED * CAR_RUNNING);
+    motor_left->setSpeed(MOTOR_SPEED / 10 * CAR_RUNNING);
+    turning_motor = motor_right;
+  } else if (TURNING == -1 && (measures[2] == 1 && measures[3] == 1)) {
+    TURNING = 1;
+    motor_right->setSpeed(MOTOR_SPEED / 10 * CAR_RUNNING);
+    motor_left->setSpeed(MOTOR_SPEED * CAR_RUNNING);
+  }
+  Serial.print("TURNING: "); Serial.println(TURNING);
+  
+  if (TURNING != -1) {
+    if (measures[TURNING] == 1) {
+      Serial.println("OFF");
+      TURNING = -1;
+    }
+  } else {
+    for (int i = 0; i < 2; i++) {
+      Side *side = SIDES[i];
+      int motor_speed = get_motor_speed(side, measures);
+      motor_speed = max(min(motor_speed, 255), 0);
+      //set_motor(side.motor, side.dir, motor_speed);
+      side->motor->setSpeed(motor_speed);
+    }
   }
   free(measures);
+  
 }
 
 // MODIFY CONSTANTS FUNCS
