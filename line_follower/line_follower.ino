@@ -56,20 +56,42 @@ typedef struct {
 } Side;
 
 Side RIGHT = {
-  .coefs = {1, 1, -1, -1},
+  .coefs = {4, 1, -1, -4},
   .motor = motor_right,
   .dir = FORWARD,
-  .last_adj = 0
-  .last_speed = MOTOR_SPEED;
+  .last_adj = 0,
+  .last_speed = MOTOR_SPEED,
 };
 Side LEFT = {
-  .coefs = {-1, -1, 1, 1},
+  .coefs = {-4, -1, 1, 4},
   .motor = motor_left,
   .dir = FORWARD,
-  .last_adj = 0
-  .last_speed = MOTOR_SPEED;
+  .last_adj = 0,
+  .last_speed = MOTOR_SPEED,
 };
 Side *SIDES[2] = {&RIGHT, &LEFT};
+
+void send_current_consts(){
+  Serial.print("{");
+  Serial.print(MOTOR_SPEED); Serial.print(","); 
+  Serial.print(ERROR_COEF); Serial.print(",");
+  Serial.print(SENSOR_THRESH);
+  Serial.println("}");
+  Serial.flush();
+}
+
+void send_data(int rspeed, int lspeed){
+  Serial.print("{");
+  Serial.print(millis()); Serial.print(","); 
+  Serial.print(lspeed); Serial.print(",");
+  Serial.print(rspeed); Serial.print(",");
+  Serial.print(SENSOR_READINGS[0]); Serial.print(",");
+  Serial.print(SENSOR_READINGS[1]); Serial.print(",");
+  Serial.print(SENSOR_READINGS[2]); Serial.print(",");
+  Serial.print(SENSOR_READINGS[3]);
+  Serial.println("}");
+  Serial.flush();
+}
 
 void set_motor(Adafruit_DCMotor *motor, uint8_t mode, int motor_speed=MOTOR_SPEED) {
   motor->run(mode);
@@ -80,12 +102,12 @@ void set_motor(Adafruit_DCMotor *motor, uint8_t mode, int motor_speed=MOTOR_SPEE
 
 // MEASURE FUNCS
 int get_measure(uint8_t sensor) {
-  return analogRead(sensor);
+  SENSOR_READINGS[sensor] = analogRead(sensor);
+  return SENSOR_READINGS[sensor];
 }
 
 uint8_t is_line(uint8_t sensor) {
   int measure = get_measure(sensor);
-  SENSOR_READINGS[sensor] = measure;
   return (measure > SENSOR_THRESH);
 }
 
@@ -123,7 +145,6 @@ void set_motor_speeds() {
 			TURNING = 2;
 			SIDES[0]->last_speed = MOTOR_SPEED * CAR_RUNNING;
 			SIDES[1]->last_speed = MOTOR_SPEED / 10 * CAR_RUNNING;
-			turning_motor = motor_right;
 		} else if (measures[2] == 1 && measures[3] == 1) {
 			TURNING = 1;
 			SIDES[0]->last_speed = MOTOR_SPEED / 10 * CAR_RUNNING;
@@ -144,6 +165,7 @@ void set_motor_speeds() {
       motor_speed = max(min(motor_speed, 255), 0);
       side->motor->setSpeed(motor_speed);
 			side->last_speed = motor_speed;
+    }
   }
 
   unsigned long current_time = millis();
@@ -153,8 +175,7 @@ void set_motor_speeds() {
   }
 
   free(speeds);
-  free(measures);
-  
+  free(measures); 
 }
 
 // MODIFY CONSTANTS FUNCS
@@ -188,10 +209,6 @@ void recvWithStartEndMarkers() {
     }
 }
 
-void set_array_constant(char *constant, char *values) {
-  
-}
-
 void setNewVal(uint8_t index, int new_val){
   if(index < 4 ){
     *consts[index] = new_val;
@@ -202,33 +219,12 @@ void setNewVal(uint8_t index, int new_val){
   }
 }
 
-void send_current_consts(int flag){
-  Serial.print("{");
-  Serial.print(MOTOR_SPEED); Serial.print(","); 
-  Serial.print(ERROR_COEF); Serial.print(",");
-  Serial.print(SENSOR_THRESH);
-  Serial.println("}");
-  Serial.flush();
-}
-
-void send_data(int rspeed, int lspeed){
-  Serial.print("{");
-  Serial.print(millis()); Serial.print(","); 
-  Serial.print(lspeed); Serial.print(","); Serial.print(rspeed); Serial.print(",");
-  Serial.print(SENSOR_READINGS[0]); Serial.print(","); Serial.print(SENSOR_READINGS[1]); Serial.print(",");
-  Serial.print(SENSOR_READINGS[2]); Serial.print(","); Serial.print(SENSOR_READINGS[3]);
-  Serial.println("}");
-  Serial.flush();
-}
-
 void setup() {
   AFMS.begin(); 
   Serial.begin(115200);
   set_motor(RIGHT.motor, RIGHT.dir);
   set_motor(LEFT.motor, LEFT.dir);
-  send_current_consts(0);
-  send_current_consts(0);
-  send_current_consts(0);
+  send_current_consts();
   last_time = millis();
 }
 
@@ -240,14 +236,14 @@ void loop() {
   if (newData) {
     String data = receivedChars;
     int const_index; 
-   
-    const_index = data.substring(0, 1).toInt(); 
-    //assuming first value is only one digit 
+
+    // Assumes first value is only one digit 
+    const_index = data.substring(0, 1).toInt();
     new_val = data.substring(2).toInt(); 
 
     setNewVal(const_index, new_val); 
 
-    send_current_consts(1);
+    send_current_consts();
     newData = false;
   }
 }
