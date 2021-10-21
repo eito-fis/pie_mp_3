@@ -8,6 +8,8 @@ const uint8_t SENSOR_OUT_RIGHT = 3;
 const uint8_t SENSORS[] = {SENSOR_OUT_LEFT, SENSOR_IN_LEFT, SENSOR_IN_RIGHT, SENSOR_OUT_RIGHT};
 const uint8_t NUM_SENSORS = 4;
 
+int SENSOR_READINGS[4] = {0, 0, 0, 0};
+
 // MISC CONSTANTS
 float DERIV_COEF = 0;
 int MOTOR_SPEED = 100;
@@ -24,27 +26,32 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *motor_right = AFMS.getMotor(2);
 Adafruit_DCMotor *motor_left = AFMS.getMotor(1);
 
-
 const byte numChars = 32;
 char receivedChars[numChars];
-char tempChars[numChars];        // temporary array for use when parsing
+char tempChars[numChars];  // temporary array for use when parsing
 
-      // variables to hold the parsed data
+// variables to hold the parsed data
 char messageFromPC[numChars] = {0};
 int integerFromPC = 0;
 float floatFromPC = 0.0;
 String data; 
 
 boolean newData = false;
+boolean collectData = false;
+
+int new_val; 
 
 int *consts[4] = {&CAR_RUNNING, &MOTOR_SPEED, &ERROR_COEF, &SENSOR_THRESH}; 
 
+unsigned long last_time;
+unsigned long WAIT_FOR = 100;
 
 // SIDES
 typedef struct {
   int coefs[4];
   Adafruit_DCMotor *motor;
   uint8_t dir;
+  int last_adj;
   int last_speed;
 } Side;
 
@@ -52,13 +59,15 @@ Side RIGHT = {
   .coefs = {1, 1, -1, -1},
   .motor = motor_right,
   .dir = FORWARD,
-  .last_speed = 0
+  .last_adj = 0
+  .last_speed = MOTOR_SPEED;
 };
 Side LEFT = {
   .coefs = {-1, -1, 1, 1},
   .motor = motor_left,
   .dir = FORWARD,
-  .last_speed = 0
+  .last_adj = 0
+  .last_speed = MOTOR_SPEED;
 };
 Side *SIDES[2] = {&RIGHT, &LEFT};
 
@@ -76,6 +85,7 @@ int get_measure(uint8_t sensor) {
 
 uint8_t is_line(uint8_t sensor) {
   int measure = get_measure(sensor);
+  SENSOR_READINGS[sensor] = measure;
   return (measure > SENSOR_THRESH);
 }
 
@@ -99,29 +109,32 @@ int get_error(Side side, uint8_t *measures) {
 int get_motor_speed(Side *side, uint8_t *measures) {
   int error = get_error(*side, measures);
   int prop_adj = error * ERROR_COEF;
-  int deriv_adj = (int)(((float)(prop_adj - side->last_speed)) * DERIV_COEF);
-  side->last_speed = prop_adj;
+  int deriv_adj = (int)(((float)(prop_adj - side->last_adj)) * DERIV_COEF);
+  side->last_adj = prop_adj;
   return (MOTOR_SPEED + prop_adj + deriv_adj) * CAR_RUNNING;
 }
 
 void set_motor_speeds() {
   uint8_t *measures = get_measures();
-  Serial.print(measures[0]); Serial.print(measures[1]); Serial.print(measures[2]); Serial.println(measures[3]);
-  if (TURNING == -1 && (measures[0] == 1 && measures[1] == 1)) {
-    TURNING = 2;
-    motor_right->setSpeed(MOTOR_SPEED * CAR_RUNNING);
-    motor_left->setSpeed(MOTOR_SPEED / 10 * CAR_RUNNING);
-    turning_motor = motor_right;
-  } else if (TURNING == -1 && (measures[2] == 1 && measures[3] == 1)) {
-    TURNING = 1;
-    motor_right->setSpeed(MOTOR_SPEED / 10 * CAR_RUNNING);
-    motor_left->setSpeed(MOTOR_SPEED * CAR_RUNNING);
+  int *speeds = malloc(sizeof(int) * 2);
+
+  if (TURNING == -1) {
+		if (measures[0] == 1 && measures[1] == 1) {
+			TURNING = 2;
+			SIDES[0]->last_speed = MOTOR_SPEED * CAR_RUNNING;
+			SIDES[1]->last_speed = MOTOR_SPEED / 10 * CAR_RUNNING;
+			turning_motor = motor_right;
+		} else if (measures[2] == 1 && measures[3] == 1) {
+			TURNING = 1;
+			SIDES[0]->last_speed = MOTOR_SPEED / 10 * CAR_RUNNING;
+			SIDES[1]->last_speed = MOTOR_SPEED * CAR_RUNNING;
+		}
+		motor_right->setSpeed(SIDES[0]->last_speed);
+		motor_left->setSpeed(SIDES[1]->last_speed);
   }
-  Serial.print("TURNING: "); Serial.println(TURNING);
   
   if (TURNING != -1) {
     if (measures[TURNING] == 1) {
-      Serial.println("OFF");
       TURNING = -1;
     }
   } else {
@@ -129,10 +142,17 @@ void set_motor_speeds() {
       Side *side = SIDES[i];
       int motor_speed = get_motor_speed(side, measures);
       motor_speed = max(min(motor_speed, 255), 0);
-      //set_motor(side.motor, side.dir, motor_speed);
       side->motor->setSpeed(motor_speed);
-    }
+			side->last_speed = motor_speed;
   }
+
+  unsigned long current_time = millis();
+  if (collectData && (current_time - last_time) > WAIT_FOR) {
+    send_data(SIDES[0]->last_speed, SIDES[1]->last_speed);
+    last_time = current_time;
+  }
+
+  free(speeds);
   free(measures);
   
 }
@@ -172,27 +192,32 @@ void set_array_constant(char *constant, char *values) {
   
 }
 
-void setNewVal(uint8_t index, uint8_t new_val){
-  Serial.println("ere"); 
+void setNewVal(uint8_t index, int new_val){
   if(index < 4 ){
-
     *consts[index] = new_val;
-    //Not working rn
-    Serial.println("Set indivdiual constant"); 
-    Serial.println(CAR_RUNNING);
-    //If car is to stop, set car running to 0, if car is to run, set car running to 1
-    Serial.println(MOTOR_SPEED); 
-    Serial.println(ERROR_COEF); 
-    Serial.println(SENSOR_THRESH); 
-  } else if(index == 4) {
-    Serial.println("Setting array constant"); 
-    set_array_constant(new_val, NULL); 
+  } else if(index == 4) { 
+    collectData = true; 
+  } else if(index == 5) {
+    collectData = false;
   }
 }
 
-void send_current_consts(){
-  String motorspeed = String(MOTOR_SPEED); 
-  Serial.print(motorspeed + "," + motorspeed + "," + motorspeed + "<>");
+void send_current_consts(int flag){
+  Serial.print("{");
+  Serial.print(MOTOR_SPEED); Serial.print(","); 
+  Serial.print(ERROR_COEF); Serial.print(",");
+  Serial.print(SENSOR_THRESH);
+  Serial.println("}");
+  Serial.flush();
+}
+
+void send_data(int rspeed, int lspeed){
+  Serial.print("{");
+  Serial.print(millis()); Serial.print(","); 
+  Serial.print(lspeed); Serial.print(","); Serial.print(rspeed); Serial.print(",");
+  Serial.print(SENSOR_READINGS[0]); Serial.print(","); Serial.print(SENSOR_READINGS[1]); Serial.print(",");
+  Serial.print(SENSOR_READINGS[2]); Serial.print(","); Serial.print(SENSOR_READINGS[3]);
+  Serial.println("}");
   Serial.flush();
 }
 
@@ -201,25 +226,28 @@ void setup() {
   Serial.begin(115200);
   set_motor(RIGHT.motor, RIGHT.dir);
   set_motor(LEFT.motor, LEFT.dir);
+  send_current_consts(0);
+  send_current_consts(0);
+  send_current_consts(0);
+  last_time = millis();
 }
 
 void loop() {
   set_motor_speeds();
-  /* send_current_consts(); */
   
-
   recvWithStartEndMarkers();
-  if (newData == true) {
+  
+  if (newData) {
     String data = receivedChars;
     int const_index; 
-    int new_val; 
-
+   
     const_index = data.substring(0, 1).toInt(); 
     //assuming first value is only one digit 
     new_val = data.substring(2).toInt(); 
-    
+
     setNewVal(const_index, new_val); 
 
+    send_current_consts(1);
     newData = false;
   }
 }
