@@ -42,14 +42,17 @@ def handleStopData():
 
 
 def handleSubmit():
+    updates = 0
     if eSensorThresh.get().isnumeric():
         writeSerial('3', eSensorThresh.get())
+        updates += 1
     if eMotorSpeed.get().isnumeric():
         writeSerial('1', eMotorSpeed.get())
+        updates += 1
     if eErrorCoef.get().isnumeric():
         writeSerial('2', eErrorCoef.get())
-
-    readSerialForConsts()
+        updates += 1
+    readSerialForConsts(n=updates)
 
 
 def parseData(raw_data):
@@ -87,12 +90,13 @@ def readSerialForData():
         return [value for value in values]
 
 
-def readSerialForConsts():
+def readSerialForConsts(n=1):
     if serial_port.connected:
         print("Retreiving constants...")
-        currentconsts = serial_port.read()
-        currentconsts = serial_port.read()
-        currentconsts = serial_port.read()
+        for _ in range(n):
+            # Each constant we update generates its own response, so we must read once
+            # for every value that we updated. Defaults to 1.
+            currentconsts = serial_port.read()
         currentconsts_l = currentconsts.split(',')
         print(f"Got: {currentconsts_l}")
 
@@ -124,7 +128,7 @@ if __name__ == "__main__":
 
 
     STvar = StringVar()
-    STlabel2 = Label( root, text="Sensro threshold variable: ", relief=RAISED )
+    STlabel2 = Label( root, text="Sensor threshold variable: ", relief=RAISED )
     STlabel = Label( root, textvariable= STvar, relief=RAISED )
 
 
