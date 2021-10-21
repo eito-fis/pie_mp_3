@@ -14,7 +14,6 @@ COLLECTION_TIME = 10
 SLEEP_INTERVAL = 0.1
 
 
-
 def handleStartBot():
     writeSerial('0', '1')
 
@@ -34,14 +33,13 @@ def handleStartData():
     data = []
     for i in range(int(COLLECTION_TIME/SLEEP_INTERVAL)):
         t, motorL, motorR, *measures = readSerialForData();
+
         print(t)
         print(motorL)
         print(motorR)
-
         print(measures)
 
         data.append((motorR, motorL, measures[2], measures[1], measures[3], measures[0], t))
-        # time.sleep(SLEEP_INTERVAL)
     print(data)
     joblib.dump(data, "data.jl")
     print("Saved to data.jl")
