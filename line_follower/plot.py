@@ -2,10 +2,12 @@ import joblib
 import matplotlib.pyplot as plt
 
 def load_file(fname):
+    '''Loads in txt file for motor and sensor data'''
     f = joblib.load(fname)
     return f
 
 def parse_data(raw_data):
+    '''parses line of data into individual motor and sensor values'''
     # raw_data = [(a, b, c, d, e, f) ...]
     values = list(zip(*raw_data))
     values = [[int(i) for i in l] for l in values]
@@ -13,21 +15,9 @@ def parse_data(raw_data):
     # Order: motorR, motorL, sensorIR, sensorIL, sensorOR, sensorOL, time
     return (v for v in values)
 
-def plot_motor_speeds(time, motorR, motorL):
-    plot1 = plt.figure(1)
-    plt.plot(time, motorR, c = 'r')
-    plt.plot(time, motorL, c = 'b')
-
-
-def plot_sensor(time, sensorIR, sensorOR, sensorIL, sensorOL):
-    plot2 = plt.figure(2)
-    plt.plot(time, sensorIR, c = 'r')
-    plt.plot(time, sensorOR, c = 'b')
-    plt.plot(time, sensorIL, c = 'g')
-    plt.plot(time, sensorOL, c = 'purple')
-
 
 def plot_both(time, motorR, motorL, sensorIR, sensorOR, sensorIL, sensorOL):
+    '''plot both motor and sensor data as a function of time'''
     _, axs = plt.subplots(nrows=2, ncols=1, sharex=True)
 
     c_left = plt.cm.viridis(0)
@@ -59,10 +49,8 @@ if __name__ == '__main__':
     data_list = load_file('data.jl')
     motorR, motorL, sensorIR, sensorIL, sensorOR, sensorOL, time = parse_data(data_list)
 
-    time_norm = [int(t) - int(time[0]) for t in time]
+    time_norm = [int(t) - int(time[0]) for t in time] #normalize time by subtracting the start time from every time value
 
-    # plot_motor_speeds(time_norm, motorR, motorL)
-    # plot_sensor(time_norm, sensorIR, sensorOR, sensorIL, sensorOL)
     plot_both(time_norm, motorR, motorL, sensorIR, sensorOR, sensorIL, sensorOL)
 
     plt.show()

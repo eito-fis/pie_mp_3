@@ -13,36 +13,35 @@ SLEEP_INTERVAL = 0.1
 
 
 def handleStartBot():
+    '''Tells arduino start both motors'''
     writeSerial('0', '1')
 
 def handleStopBot():
+    '''Tells arduino to stop both motors'''
     writeSerial('0', '0')
 
-def parse_message(message):
-  '''Splits incoming message from Arduino into individual values,
-     delimited by commas'''
-  split_data = message.split(",")
-  return [int(value) for value in split_data]
-
 def handleStartData():
+    '''Starts collecting motor and sesnor data and saves it to a txt file'''
     writeSerial('4', '')
     data = []
     print("Collecting data...")
     for _ in tqdm(range(int(COLLECTION_TIME/SLEEP_INTERVAL))):
-        t, motorL, motorR, *measures = readSerialForData();
+        t, motorL, motorR, *measures = readSerialForData(); #records time, motor vlaues, and sensor data
         data.append((motorR, motorL, measures[2], measures[1], measures[3], measures[0], t))
     print(f"Data: {data}")
     joblib.dump(data, "data.jl")
     print("Saved to data.jl")
-    writeSerial('5', '')
+    writeSerial('5', '') #tells arduino to stop sending data 
 
 
 def handleStopData():
+    '''Tells arduino to sending data'''
     writeSerial('5', '')
 
 
 def handleSubmit():
-    updates = 0
+    '''sends new constant values to the arduino'''
+    updates = 0 #keep track of how many times we need to read new data
     if eSensorThresh.get().isnumeric():
         writeSerial('3', eSensorThresh.get())
         updates += 1
@@ -52,10 +51,11 @@ def handleSubmit():
     if eErrorCoef.get().isnumeric():
         writeSerial('2', eErrorCoef.get())
         updates += 1
-    readSerialForConsts(n=updates)
+    readSerialForConsts(n=updates)#Updates GUI with  new constant values 
 
 
 def parseData(raw_data):
+    '''Splits incoming message from Arduino into individual values, delimited by commas'''
     start = raw_data.find('{')
     end = raw_data.find('}')
     elements = raw_data[start + 1:end]
@@ -64,18 +64,21 @@ def parseData(raw_data):
 
 
 def displayOldConstants(const_l):
+    '''Displays constants in GUI'''
     MSvar.set(const_l[0])
     ECvar.set(const_l[1])
     STvar.set(const_l[2])
 
 
 def writeSerial(index, newval):
+    '''Uses Serial object to set values of constants, and control bot start/stop behavior '''
     if serial_port.connected:
         print(newval)
         serial_port.write("<" + index + "," + newval + ">")
 
 
 def readSerialForData():
+    '''reads serial monitor for motor and sensor data'''
     if serial_port.connected:
         data = serial_port.read()
         split_data = data.split(",")
@@ -91,6 +94,7 @@ def readSerialForData():
 
 
 def readSerialForConsts(n=1):
+    '''reads serial monitor for constant values'''
     if serial_port.connected:
         print("Retreiving constants...")
         for _ in range(n):
@@ -103,15 +107,17 @@ def readSerialForConsts(n=1):
         while (
             ('{' not in currentconsts or '}' not in currentconsts) or
             (not len(currentconsts_l) == 3)
-        ):
+        ): 
             currentconsts = serial_port.read()
             currentconsts_l = currentconsts.split(',')
 
         constants = parseData(currentconsts)
-        displayOldConstants(constants)
+        displayOldConstants(constants) #updates GUI with new constants
 
 
 if __name__ == "__main__":
+    '''Creates GUI'''
+
     root = Tk()
     root.title("Line follower bot!")
     root.geometry('240x520+0+0')
